@@ -505,7 +505,7 @@ Remember to smile, slow down, and keep your energy up!</textarea>
   <!-- Preview Modal -->
   <div class="preview-modal" id="previewModal">
     <div class="preview-container">
-      <div class="preview-header">📹 Recording Preview</div>
+      <div class="preview-header">📹 Camera Preview</div>
       <div class="preview-video-wrap">
         <video id="previewVideo" autoplay playsinline muted></video>
       </div>
@@ -514,7 +514,7 @@ Remember to smile, slow down, and keep your energy up!</textarea>
       </div>
       <div class="preview-buttons">
         <button id="cancelPreview">Cancel</button>
-        <button id="confirmRecord" class="primary">🔴 Start Recording</button>
+        <button id="confirmRecord" class="primary">✓ Go Full Screen</button>
       </div>
     </div>
   </div>
@@ -679,10 +679,13 @@ Remember to smile, slow down, and keep your energy up!</textarea>
           video: { facingMode },
           audio: true,
         });
-        preview.srcObject = stream;
-        recordBtn.disabled = false;
+        // Show in small preview modal first
+        previewVideo.srcObject = stream;
+        previewScriptText.textContent = scriptInput.value.trim().substring(0, 200) + (scriptInput.value.length > 200 ? '...' : '');
+        previewModal.classList.add('visible');
+        recordBtn.disabled = true;
         flipCameraBtn.disabled = false;
-        updateStatus('Camera live');
+        updateStatus('Preview mode');
       } catch (err) {
         console.error(err);
         updateStatus('Camera blocked', 'error');
@@ -752,12 +755,34 @@ Remember to smile, slow down, and keep your energy up!</textarea>
 
     const hidePreviewModal = () => {
       previewModal.classList.remove('visible');
-      previewVideo.srcObject = null;
     };
 
-    cancelPreviewBtn.addEventListener('click', hidePreviewModal);
+    const goFullScreen = () => {
+      // Move stream to main preview
+      preview.srcObject = stream;
+      previewVideo.srcObject = null;
+      hidePreviewModal();
+      recordBtn.disabled = false;
+      updateStatus('Camera live');
+    };
 
-    recordBtn.addEventListener('click', () => {
+    cancelPreviewBtn.addEventListener('click', () => {
+      hidePreviewModal();
+      // Stop camera if user cancels
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+        stream = null;
+      }
+      preview.srcObject = null;
+      previewVideo.srcObject = null;
+      recordBtn.disabled = true;
+      updateStatus('Standby');
+    });
+
+    // Confirm button now goes to full screen view
+    confirmRecordBtn.addEventListener('click', goFullScreen);
+
+    recordBtn.addEventListener('click', async () => {
       if (!stream) {
         alert('Start the camera first.');
         return;
@@ -765,11 +790,6 @@ Remember to smile, slow down, and keep your energy up!</textarea>
       if (countdownActive) {
         return;
       }
-      showPreviewModal();
-    });
-
-    confirmRecordBtn.addEventListener('click', async () => {
-      hidePreviewModal();
 
       mimeType = pickMimeType();
       try {
