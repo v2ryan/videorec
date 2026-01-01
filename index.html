@@ -367,6 +367,37 @@
     }
 
     /* Preview Modal */
+    /* Floating stop recording button */
+    .floating-stop-btn {
+      position: absolute;
+      bottom: 2rem;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 1rem 2rem;
+      background: var(--error);
+      color: #fff;
+      border: none;
+      border-radius: 999px;
+      font-size: 1.1rem;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      z-index: 20;
+      box-shadow: 0 8px 25px rgba(220, 38, 38, 0.4);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 200ms ease, transform 200ms ease;
+    }
+
+    .floating-stop-btn.visible {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .floating-stop-btn:hover {
+      transform: translateX(-50%) scale(1.05);
+    }
+
     .preview-modal {
       position: fixed;
       inset: 0;
@@ -472,18 +503,25 @@
     /* Mobile phone specific styles (max-width 480px targets phones, not iPads) */
     @media (max-width: 480px) {
       .teleprompter {
-        top: 2vh;
-        width: 96%;
-        height: 35vh;
-        padding: 1rem;
-        border-radius: 1rem;
+        top: 1vh;
+        width: 98%;
+        height: 55vh;
+        padding: 0.75rem;
+        border-radius: 0.75rem;
+        background: rgba(255, 255, 255, 0.85);
       }
 
       .teleprompter-inner {
-        font-size: 1.1rem;
-        line-height: 1.3;
+        font-size: 1.2rem;
+        line-height: 1.4;
         gap: 0.8rem;
-        padding-bottom: 30vh;
+        padding-bottom: 45vh;
+      }
+
+      .floating-stop-btn {
+        bottom: 1rem;
+        padding: 0.75rem 1.5rem;
+        font-size: 0.95rem;
       }
 
       .control-dock {
@@ -586,12 +624,48 @@
         font-size: 0.75rem;
       }
     }
+
+    /* Language toggle button */
+    .lang-toggle {
+      position: absolute;
+      top: 1rem;
+      left: 1rem;
+      padding: 0.5rem 1rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      z-index: 15;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      transition: background 150ms ease;
+    }
+
+    .lang-toggle:hover {
+      background: var(--accent);
+      color: #fff;
+      border-color: var(--accent);
+    }
+
+    @media (max-width: 480px) {
+      .lang-toggle {
+        top: 0.5rem;
+        left: 0.5rem;
+        padding: 0.4rem 0.75rem;
+        font-size: 0.75rem;
+      }
+    }
   </style>
 </head>
 
 <body>
   <div class="canvas">
     <video id="cameraPreview" class="camera-feed" autoplay playsinline muted></video>
+
+    <!-- Language toggle button -->
+    <button class="lang-toggle" id="langToggle">EN / 中文</button>
 
     <!-- Recording timer overlay -->
     <div class="recording-timer-overlay" id="recordingTimerOverlay">
@@ -604,6 +678,9 @@
     </div>
 
     <div class="countdown-overlay" id="countdown"></div>
+
+    <!-- Floating stop recording button (visible during recording) -->
+    <button class="floating-stop-btn" id="floatingStopBtn">⏹ Stop Recording</button>
 
     <div class="control-dock collapsed" id="controlDock">
       <button class="dock-toggle" id="dockToggle" aria-expanded="false">
@@ -690,6 +767,120 @@ Remember to smile, slow down, and keep your energy up!</textarea>
     let lastFrameTime = 0;
     let countdownActive = false;
     let dockAutoCollapsed = false;
+    let currentLang = 'en';
+
+    // Translation strings
+    const translations = {
+      en: {
+        showControls: 'Show controls',
+        hideControls: 'Hide controls',
+        teleprompterStudio: 'Teleprompter Studio · Last refreshed:',
+        timer: 'Timer:',
+        standby: 'Standby',
+        cameraLive: 'Camera live',
+        previewMode: 'Preview mode',
+        recording: 'Recording',
+        getReady: 'Get ready',
+        processingClip: 'Processing clip',
+        readyToDownload: 'Ready to download',
+        clipSaved: 'Clip saved',
+        cameraBlocked: 'Camera blocked',
+        startCamera: 'Start camera',
+        flipCamera: 'Flip camera',
+        startRecording: 'Start recording',
+        stopRecording: 'Stop recording',
+        downloadClip: 'Download clip',
+        scriptText: 'Script text',
+        playScroll: 'Play scroll',
+        pauseScroll: 'Pause scroll',
+        reset: 'Reset',
+        mirrorText: 'Mirror text',
+        unmirrorText: 'Unmirror text',
+        speed: 'Speed',
+        hint: 'Run this page fullscreen on the iPad, dim the screen slightly, and keep your gaze near the lens for natural eye contact.',
+        cameraPreview: '📹 Camera Preview',
+        script: 'Script:',
+        cancel: 'Cancel',
+        goFullScreen: '✓ Go Full Screen',
+        floatingStop: '⏹ Stop Recording',
+        langBtn: 'EN / 中文'
+      },
+      zh: {
+        showControls: '顯示控制',
+        hideControls: '隱藏控制',
+        teleprompterStudio: '提詞器工作室 · 上次更新:',
+        timer: '計時:',
+        standby: '待機',
+        cameraLive: '鏡頭啟動',
+        previewMode: '預覽模式',
+        recording: '錄製中',
+        getReady: '準備中',
+        processingClip: '處理影片中',
+        readyToDownload: '可以下載',
+        clipSaved: '影片已保存',
+        cameraBlocked: '鏡頭被封鎖',
+        startCamera: '開啟鏡頭',
+        flipCamera: '切換鏡頭',
+        startRecording: '開始錄製',
+        stopRecording: '停止錄製',
+        downloadClip: '下載影片',
+        scriptText: '講稿文字',
+        playScroll: '開始滾動',
+        pauseScroll: '暫停滾動',
+        reset: '重置',
+        mirrorText: '鏡像文字',
+        unmirrorText: '取消鏡像',
+        speed: '速度',
+        hint: '在 iPad 上全螢幕運行此頁面，將螢幕稍微調暗，並將視線保持在鏡頭附近以獲得自然的眼神接觸。',
+        cameraPreview: '📹 鏡頭預覽',
+        script: '講稿:',
+        cancel: '取消',
+        goFullScreen: '✓ 全螢幕',
+        floatingStop: '⏹ 停止錄製',
+        langBtn: '中文 / EN'
+      }
+    };
+
+    const langToggle = document.getElementById('langToggle');
+    const startCameraBtn = document.getElementById('startCamera');
+    const flipCameraBtn = document.getElementById('flipCamera');
+    const recordBtn = document.getElementById('recordBtn');
+    const stopRecordBtn = document.getElementById('stopRecordBtn');
+    const downloadBtn = document.getElementById('downloadRecording');
+    const scriptLabel = document.querySelector('label[for="scriptInput"]');
+    const hintEl = document.querySelector('.hint');
+    const previewHeader = document.querySelector('.preview-header');
+    const previewScriptLabel = document.querySelector('#previewScript strong');
+    const cancelPreviewBtnEl = document.getElementById('cancelPreview');
+    const confirmRecordBtnEl = document.getElementById('confirmRecord');
+    const floatingStopBtnEl = document.getElementById('floatingStopBtn');
+
+    const applyTranslations = () => {
+      const t = translations[currentLang];
+      langToggle.textContent = t.langBtn;
+      dockToggleLabel.textContent = dock.classList.contains('collapsed') ? t.showControls : t.hideControls;
+      startCameraBtn.textContent = t.startCamera;
+      flipCameraBtn.textContent = t.flipCamera;
+      recordBtn.textContent = t.startRecording;
+      stopRecordBtn.textContent = t.stopRecording;
+      downloadBtn.textContent = t.downloadClip;
+      toggleScrollBtn.textContent = isScrolling ? t.pauseScroll : t.playScroll;
+      resetScrollBtn.textContent = t.reset;
+      mirrorToggleBtn.textContent = teleprompter.classList.contains('mirrored') ? t.unmirrorText : t.mirrorText;
+      document.querySelector('label:has(#speed)').childNodes[0].textContent = t.speed;
+      scriptLabel.childNodes[0].textContent = t.scriptText;
+      hintEl.textContent = t.hint;
+      previewHeader.textContent = t.cameraPreview;
+      previewScriptLabel.textContent = t.script;
+      cancelPreviewBtnEl.textContent = t.cancel;
+      confirmRecordBtnEl.textContent = t.goFullScreen;
+      floatingStopBtnEl.textContent = t.floatingStop;
+    };
+
+    langToggle.addEventListener('click', () => {
+      currentLang = currentLang === 'en' ? 'zh' : 'en';
+      applyTranslations();
+    });
 
     const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -781,11 +972,6 @@ Remember to smile, slow down, and keep your energy up!</textarea>
 
     // Camera + recording setup
     const preview = document.getElementById('cameraPreview');
-    const startCameraBtn = document.getElementById('startCamera');
-    const flipCameraBtn = document.getElementById('flipCamera');
-    const recordBtn = document.getElementById('recordBtn');
-    const stopRecordBtn = document.getElementById('stopRecordBtn');
-    const downloadBtn = document.getElementById('downloadRecording');
     const statusBadge = document.getElementById('statusBadge');
     const timerEl = document.getElementById('timer');
 
@@ -797,8 +983,23 @@ Remember to smile, slow down, and keep your energy up!</textarea>
     let timerInterval;
     let startTime = null;
 
+    // Status key to translation key mapping
+    const statusKeyMap = {
+      'Standby': 'standby',
+      'Camera live': 'cameraLive',
+      'Preview mode': 'previewMode',
+      'Recording': 'recording',
+      'Get ready': 'getReady',
+      'Processing clip': 'processingClip',
+      'Ready to download': 'readyToDownload',
+      'Clip saved': 'clipSaved',
+      'Camera blocked': 'cameraBlocked'
+    };
+
     const updateStatus = (text, state) => {
-      statusBadge.textContent = text;
+      const key = statusKeyMap[text];
+      const translatedText = key ? translations[currentLang][key] : text;
+      statusBadge.textContent = translatedText;
       statusBadge.classList.remove('recording');
       if (state === 'recording') {
         statusBadge.classList.add('recording');
@@ -1003,9 +1204,14 @@ Remember to smile, slow down, and keep your energy up!</textarea>
       toggleScrollBtn.textContent = 'Pause scroll';
       updateStatus('Recording', 'recording');
       stopRecordBtn.disabled = false;
+      // Show floating stop button
+      floatingStopBtn.classList.add('visible');
     });
 
-    stopRecordBtn.addEventListener('click', () => {
+    // Floating stop button
+    const floatingStopBtn = document.getElementById('floatingStopBtn');
+
+    const stopRecording = () => {
       if (recorder && recorder.state !== 'inactive') {
         recorder.stop();
       }
@@ -1017,7 +1223,12 @@ Remember to smile, slow down, and keep your energy up!</textarea>
       stopRecordBtn.disabled = true;
       setDownloadEnabled(false);
       updateStatus('Processing clip');
-    });
+      // Hide floating stop button
+      floatingStopBtn.classList.remove('visible');
+    };
+
+    stopRecordBtn.addEventListener('click', stopRecording);
+    floatingStopBtn.addEventListener('click', stopRecording);
 
     downloadBtn.addEventListener('click', () => {
       if (!downloadBtn.classList.contains('disabled')) {
