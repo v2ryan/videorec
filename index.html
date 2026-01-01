@@ -761,7 +761,7 @@ Remember to smile, slow down, and keep your energy up!</textarea>
     const countdownEl = document.getElementById('countdown');
     const dock = document.getElementById('controlDock');
     const dockToggle = document.getElementById('dockToggle');
-    const dockToggleLabel = dockToggle.querySelector('.dock-toggle-label');
+    const dockToggleLabel = dockToggle ? dockToggle.querySelector('.dock-toggle-label') : null;
 
     let scrollPosition = 0;
     let isScrolling = false;
@@ -857,9 +857,9 @@ Remember to smile, slow down, and keep your energy up!</textarea>
     const floatingStopBtn = document.getElementById('floatingStopBtn');
     const pipCamera = document.getElementById('pipCamera');
     const pipVideo = document.getElementById('pipVideo');
+    const speedLabel = (speedInput && speedInput.parentElement) || Array.from(document.querySelectorAll('label')).find(l => l.textContent.includes('Speed') || l.textContent.includes('速度'));
     const scriptLabel = document.querySelector('label[for="scriptInput"]');
     const hintEl = document.querySelector('.hint');
-    const speedLabel = document.querySelector('label:has(#speed)') || Array.from(document.querySelectorAll('label')).find(l => l.innerText.includes('Speed'));
 
     const applyTranslations = () => {
       const t = translations[currentLang];
@@ -875,8 +875,8 @@ Remember to smile, slow down, and keep your energy up!</textarea>
       if (toggleScrollBtn) toggleScrollBtn.textContent = isScrolling ? t.pauseScroll : t.playScroll;
       if (resetScrollBtn) resetScrollBtn.textContent = t.reset;
       if (mirrorToggleBtn) mirrorToggleBtn.textContent = teleprompter.classList.contains('mirrored') ? t.unmirrorText : t.mirrorText;
-      if (speedLabel && speedLabel.childNodes[0]) speedLabel.childNodes[0].textContent = t.speed;
-      if (scriptLabel && scriptLabel.childNodes[0]) scriptLabel.childNodes[0].textContent = t.scriptText;
+      if (speedLabel && speedLabel.childNodes.length > 0) speedLabel.childNodes[0].textContent = t.speed;
+      if (scriptLabel && scriptLabel.childNodes.length > 0) scriptLabel.childNodes[0].textContent = t.scriptText;
       if (hintEl) hintEl.textContent = t.hint;
       if (previewHeader) previewHeader.textContent = t.cameraPreview;
       if (previewScriptLabel) previewScriptLabel.textContent = t.script;
@@ -978,7 +978,7 @@ Remember to smile, slow down, and keep your energy up!</textarea>
 
     renderScript();
     requestAnimationFrame(animateScroll);
-    timestamp.textContent = new Date().toLocaleString();
+    if (timestamp) timestamp.textContent = new Date().toLocaleString();
 
     // Camera + recording setup
     const preview = document.getElementById('cameraPreview');
