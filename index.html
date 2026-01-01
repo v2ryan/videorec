@@ -704,7 +704,6 @@
           <button id="recordBtn" class="primary" disabled>Start recording</button>
           <button id="stopRecordBtn" class="danger" disabled>Stop recording</button>
           <a id="downloadRecording" class="ghost-button disabled" role="button" aria-disabled="true">Download clip</a>
-          <button id="shareBtn" class="ghost-button disabled" disabled>Share video</button>
         </div>
         <div class="layout-split">
           <div class="script-editor">
@@ -805,8 +804,6 @@ Remember to smile, slow down, and keep your energy up!</textarea>
         cancel: 'Cancel',
         goFullScreen: '✓ Go Full Screen',
         floatingStop: '⏹ Stop Recording',
-        share: 'Share video',
-        sharing: 'Sharing...',
         langBtn: 'EN / 中文'
       },
       zh: {
@@ -841,8 +838,6 @@ Remember to smile, slow down, and keep your energy up!</textarea>
         cancel: '取消',
         goFullScreen: '✓ 全螢幕',
         floatingStop: '⏹ 停止錄製',
-        share: '分享影片',
-        sharing: '分享中...',
         langBtn: '中文 / EN'
       }
     };
@@ -853,7 +848,6 @@ Remember to smile, slow down, and keep your energy up!</textarea>
     const recordBtn = document.getElementById('recordBtn');
     const stopRecordBtn = document.getElementById('stopRecordBtn');
     const downloadBtn = document.getElementById('downloadRecording');
-    const shareBtn = document.getElementById('shareBtn');
     const previewHeader = document.querySelector('.preview-header');
     const previewModal = document.getElementById('previewModal');
     const previewVideo = document.getElementById('previewVideo');
@@ -889,7 +883,6 @@ Remember to smile, slow down, and keep your energy up!</textarea>
       if (cancelPreviewBtn) cancelPreviewBtn.textContent = t.cancel;
       if (confirmRecordBtn) confirmRecordBtn.textContent = t.goFullScreen;
       if (floatingStopBtn) floatingStopBtn.textContent = t.floatingStop;
-      if (shareBtn) shareBtn.textContent = t.share;
     };
 
     applyTranslations();
@@ -1027,17 +1020,11 @@ Remember to smile, slow down, and keep your energy up!</textarea>
       if (enabled) {
         downloadBtn.classList.remove('disabled');
         downloadBtn.setAttribute('aria-disabled', 'false');
-        if (navigator.share) {
-          shareBtn.classList.remove('disabled');
-          shareBtn.disabled = false;
-        }
       } else {
         downloadBtn.classList.add('disabled');
         downloadBtn.setAttribute('aria-disabled', 'true');
         downloadBtn.removeAttribute('href');
         downloadBtn.removeAttribute('download');
-        shareBtn.classList.add('disabled');
-        shareBtn.disabled = true;
       }
     };
 
@@ -1244,36 +1231,6 @@ Remember to smile, slow down, and keep your energy up!</textarea>
     downloadBtn.addEventListener('click', () => {
       if (!downloadBtn.classList.contains('disabled')) {
         updateStatus('Clip saved');
-      }
-    });
-
-    shareBtn.addEventListener('click', async () => {
-      if (!recordedChunks.length) return;
-
-      const blob = new Blob(recordedChunks, { type: mimeType || 'video/webm' });
-      const extension = (mimeType && mimeType.includes('mp4')) ? 'mp4' : 'webm';
-      const file = new File([blob], `teleprompter-${Date.now()}.${extension}`, { type: blob.type });
-
-      if (navigator.canShare && navigator.canShare({ files: [file] })) {
-        try {
-          shareBtn.textContent = translations[currentLang].sharing;
-          shareBtn.disabled = true;
-          await navigator.share({
-            files: [file],
-            title: 'Teleprompter Recording',
-            text: 'Check out my teleprompter recording!'
-          });
-        } catch (err) {
-          if (err.name !== 'AbortError') {
-            console.error('Share failed:', err);
-            alert('Sharing failed. Please try downloading instead.');
-          }
-        } finally {
-          shareBtn.textContent = translations[currentLang].share;
-          shareBtn.disabled = false;
-        }
-      } else {
-        alert('Sharing files is not supported in this browser.');
       }
     });
 
