@@ -107,8 +107,55 @@
       padding: 1.75rem clamp(1rem, 4vw, 2.5rem) 2rem;
       display: flex;
       flex-direction: column;
-      gap: 1.2rem;
+      gap: 1rem;
       z-index: 2;
+      transition: width 200ms ease, padding 200ms ease, border-radius 200ms ease;
+    }
+
+    .control-dock.collapsed {
+      width: min(420px, 92%);
+      padding: 0.75rem 1.5rem 1rem;
+      border-radius: 999px 999px 0 0;
+      background: rgba(255, 255, 255, 0.85);
+      gap: 0.5rem;
+    }
+
+    .dock-toggle {
+      border: none;
+      background: transparent;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--accent-strong);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0;
+    }
+
+    .dock-toggle-label {
+      font-size: 0.85rem;
+    }
+
+    .dock-toggle-icon {
+      transition: transform 160ms ease;
+      font-size: 1rem;
+      margin-left: 0.5rem;
+    }
+
+    .control-dock.collapsed .dock-toggle-icon {
+      transform: rotate(180deg);
+    }
+
+    .dock-body {
+      display: flex;
+      flex-direction: column;
+      gap: 1.2rem;
+    }
+
+    .control-dock.collapsed .dock-body {
+      display: none;
     }
 
     .countdown-overlay {
@@ -278,41 +325,47 @@
 
     <div class="countdown-overlay" id="countdown"></div>
 
-    <div class="control-dock">
-      <div class="timestamp">Teleprompter Studio · Last refreshed: <span id="timestamp">—</span></div>
-      <div class="status-bar">
-        <span>Timer: <strong id="timer">00:00</strong></span>
-        <span class="badge" id="statusBadge">Standby</span>
-      </div>
-      <div class="button-row">
-        <button id="startCamera" class="primary">Start camera</button>
-        <button id="flipCamera">Flip camera</button>
-        <button id="recordBtn" class="primary" disabled>Start recording</button>
-        <button id="stopRecordBtn" class="danger" disabled>Stop recording</button>
-        <a id="downloadRecording" class="ghost-button disabled" role="button" aria-disabled="true">Download clip</a>
-      </div>
-      <div class="layout-split">
-        <div class="script-editor">
-          <label for="scriptInput">Script text
-            <textarea id="scriptInput" spellcheck="false">Hey everyone,
+    <div class="control-dock collapsed" id="controlDock">
+      <button class="dock-toggle" id="dockToggle" aria-expanded="false">
+        <span class="dock-toggle-label">Show controls</span>
+        <span class="dock-toggle-icon" aria-hidden="true">▴</span>
+      </button>
+      <div class="dock-body">
+        <div class="timestamp">Teleprompter Studio · Last refreshed: <span id="timestamp">—</span></div>
+        <div class="status-bar">
+          <span>Timer: <strong id="timer">00:00</strong></span>
+          <span class="badge" id="statusBadge">Standby</span>
+        </div>
+        <div class="button-row">
+          <button id="startCamera" class="primary">Start camera</button>
+          <button id="flipCamera">Flip camera</button>
+          <button id="recordBtn" class="primary" disabled>Start recording</button>
+          <button id="stopRecordBtn" class="danger" disabled>Stop recording</button>
+          <a id="downloadRecording" class="ghost-button disabled" role="button" aria-disabled="true">Download clip</a>
+        </div>
+        <div class="layout-split">
+          <div class="script-editor">
+            <label for="scriptInput">Script text
+              <textarea id="scriptInput" spellcheck="false">Hey everyone,
 
 Thanks for tuning in today. I wanted to share a quick update straight from the iPad teleprompter I built.
 
 Remember to smile, slow down, and keep your energy up!</textarea>
-          </label>
+            </label>
+          </div>
+          <div class="prompt-controls">
+            <button id="toggleScroll" class="primary">Play scroll</button>
+            <button id="resetScroll">Reset</button>
+            <button id="mirrorToggle">Mirror text</button>
+            <label>Speed
+              <input id="speed" type="range" min="0.1" max="4" step="0.1" value="1" />
+            </label>
+          </div>
         </div>
-        <div class="prompt-controls">
-          <button id="toggleScroll" class="primary">Play scroll</button>
-          <button id="resetScroll">Reset</button>
-          <button id="mirrorToggle">Mirror text</button>
-          <label>Speed
-            <input id="speed" type="range" min="0.1" max="4" step="0.1" value="1" />
-          </label>
-        </div>
+        <p class="hint">
+          Run this page fullscreen on the iPad, dim the screen slightly, and keep your gaze near the lens for natural eye contact.
+        </p>
       </div>
-      <p class="hint">
-        Run this page fullscreen on the iPad, dim the screen slightly, and keep your gaze near the lens for natural eye contact.
-      </p>
     </div>
   </div>
 
@@ -326,6 +379,9 @@ Remember to smile, slow down, and keep your energy up!</textarea>
     const speedInput = document.getElementById('speed');
     const timestamp = document.getElementById('timestamp');
     const countdownEl = document.getElementById('countdown');
+    const dock = document.getElementById('controlDock');
+    const dockToggle = document.getElementById('dockToggle');
+    const dockToggleLabel = dockToggle.querySelector('.dock-toggle-label');
 
     let scrollPosition = 0;
     let isScrolling = false;
@@ -340,6 +396,23 @@ Remember to smile, slow down, and keep your energy up!</textarea>
       scrollPosition = 0;
       teleprompterText.style.transform = 'translateY(0)';
     };
+
+    const setDockExpanded = expanded => {
+      if (expanded) {
+        dock.classList.remove('collapsed');
+      } else {
+        dock.classList.add('collapsed');
+      }
+      dockToggleLabel.textContent = expanded ? 'Hide controls' : 'Show controls';
+      dockToggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+    };
+
+    setDockExpanded(false);
+
+    dockToggle.addEventListener('click', () => {
+      const expanded = dock.classList.contains('collapsed');
+      setDockExpanded(expanded);
+    });
 
     const runCountdown = async () => {
       countdownActive = true;
@@ -543,6 +616,7 @@ Remember to smile, slow down, and keep your energy up!</textarea>
       stopRecordBtn.disabled = true;
       setDownloadEnabled(false);
       updateStatus('Get ready');
+      setDockExpanded(false);
       await runCountdown();
       recorder.start();
       startTimer();
