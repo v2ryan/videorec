@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>iPad Teleprompter Studio</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg-start: #f0f4ff;
+      --bg-end: #ffffff;
+      --ink: #0f172a;
+      --muted: #53627a;
+      --surface: rgba(255, 255, 255, 0.92);
+      --surface-soft: rgba(255, 255, 255, 0.65);
+      --accent: #f97316;
+      --accent-strong: #ea580c;
+      --error: #dc2626;
+      --border: rgba(15, 23, 42, 0.1);
+      --shadow: 0 25px 60px rgba(15, 23, 42, 0.2);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: "Space Grotesk", sans-serif;
+      min-height: 100vh;
+      background: linear-gradient(160deg, var(--bg-start), var(--bg-end));
+      color: var(--ink);
+    }
+
+    .canvas {
+      position: relative;
+      min-height: 100vh;
+      width: 100%;
+      overflow: hidden;
+    }
+
+    .camera-feed {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .canvas::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.65) 70%);
+      pointer-events: none;
+    }
+
+    .teleprompter {
+      position: absolute;
+      top: 6vh;
+      left: 50%;
+      transform: translateX(-50%);
+      width: min(900px, 92%);
+      max-height: 70vh;
+      padding: clamp(1.5rem, 3vw, 2.5rem);
+      background: var(--surface-soft);
+      border-radius: 1.75rem;
+      border: 1px solid rgba(255, 255, 255, 0.6);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      backdrop-filter: blur(18px);
+    }
+
+    .teleprompter-inner {
+      will-change: transform;
+      display: flex;
+      flex-direction: column;
+      gap: 1.2rem;
+      font-size: clamp(1.4rem, 3vw, 2.4rem);
+      line-height: 1.4;
+      color: var(--ink);
+    }
+
+    .teleprompter p {
+      margin: 0;
+    }
+
+    .teleprompter.mirrored {
+      transform: translateX(-50%) scaleX(-1);
+    }
+
+    .teleprompter.mirrored .teleprompter-inner {
+      transform: scaleX(-1);
+    }
+
+    .control-dock {
+      position: absolute;
+      left: 50%;
+      bottom: 0;
+      transform: translateX(-50%);
+      width: min(1100px, 94%);
+      background: var(--surface);
+      border-radius: 2rem 2rem 0 0;
+      box-shadow: var(--shadow);
+      padding: 1.75rem clamp(1rem, 4vw, 2.5rem) 2rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.2rem;
+      z-index: 2;
+    }
+
+    .countdown-overlay {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: clamp(4rem, 12vw, 8rem);
+      font-weight: 600;
+      color: #ffffff;
+      text-shadow: 0 15px 45px rgba(15, 23, 42, 0.45);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 160ms ease;
+      z-index: 3;
+    }
+
+    .countdown-overlay.visible {
+      opacity: 1;
+    }
+
+    .timestamp {
+      font-size: 0.9rem;
+      color: var(--muted);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .status-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 1rem;
+      color: var(--ink);
+    }
+
+    .badge {
+      padding: 0.35rem 1rem;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+    }
+
+    .badge.recording {
+      border-color: var(--error);
+      color: var(--error);
+    }
+
+    .button-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 0.75rem;
+    }
+
+    button,
+    .ghost-button {
+      border: 1px solid rgba(15, 23, 42, 0.15);
+      background: rgba(255, 255, 255, 0.6);
+      color: var(--ink);
+      font-weight: 600;
+      border-radius: 999px;
+      padding: 0.85rem 1.1rem;
+      font-family: inherit;
+      cursor: pointer;
+      transition: transform 160ms ease, border-color 160ms ease;
+      text-align: center;
+      text-decoration: none;
+      display: inline-flex;
+      justify-content: center;
+    }
+
+    button.primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+
+    button.danger {
+      background: rgba(220, 38, 38, 0.1);
+      border-color: rgba(220, 38, 38, 0.4);
+      color: var(--error);
+    }
+
+    button:disabled,
+    .ghost-button.disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+      pointer-events: none;
+    }
+
+    button:hover:not(:disabled),
+    .ghost-button:not(.disabled):hover {
+      transform: translateY(-1px);
+      border-color: var(--accent-strong);
+    }
+
+    .layout-split {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+
+    .script-editor {
+      flex: 1 1 320px;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 180px;
+      border-radius: 1rem;
+      border: 1px solid var(--border);
+      background: rgba(255, 255, 255, 0.8);
+      color: var(--ink);
+      padding: 1rem;
+      resize: vertical;
+      font-size: 1rem;
+      font-family: inherit;
+      line-height: 1.5;
+      box-shadow: inset 0 1px 3px rgba(15, 23, 42, 0.08);
+    }
+
+    .prompt-controls {
+      flex: 1 1 220px;
+      display: grid;
+      gap: 0.75rem;
+    }
+
+    label {
+      font-size: 0.85rem;
+      color: var(--muted);
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+    }
+
+    input[type="range"] {
+      width: 100%;
+    }
+
+    .hint {
+      color: var(--muted);
+      font-size: 0.95rem;
+      margin: 0;
+    }
+
+    @media (max-width: 640px) {
+      .teleprompter {
+        top: 3vh;
+        max-height: 60vh;
+      }
+      .control-dock {
+        border-radius: 1.5rem 1.5rem 0 0;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="canvas">
+    <video id="cameraPreview" class="camera-feed" autoplay playsinline muted></video>
+
+    <div class="teleprompter" id="teleprompter">
+      <div class="teleprompter-inner" id="teleprompterText"></div>
+    </div>
+
+    <div class="countdown-overlay" id="countdown"></div>
+
+    <div class="control-dock">
+      <div class="timestamp">Teleprompter Studio · Last refreshed: <span id="timestamp">—</span></div>
+      <div class="status-bar">
+        <span>Timer: <strong id="timer">00:00</strong></span>
+        <span class="badge" id="statusBadge">Standby</span>
+      </div>
+      <div class="button-row">
+        <button id="startCamera" class="primary">Start camera</button>
+        <button id="flipCamera">Flip camera</button>
+        <button id="recordBtn" class="primary" disabled>Start recording</button>
+        <button id="stopRecordBtn" class="danger" disabled>Stop recording</button>
+        <a id="downloadRecording" class="ghost-button disabled" role="button" aria-disabled="true">Download clip</a>
+      </div>
+      <div class="layout-split">
+        <div class="script-editor">
+          <label for="scriptInput">Script text
+            <textarea id="scriptInput" spellcheck="false">Hey everyone,
+
+Thanks for tuning in today. I wanted to share a quick update straight from the iPad teleprompter I built.
+
+Remember to smile, slow down, and keep your energy up!</textarea>
+          </label>
+        </div>
+        <div class="prompt-controls">
+          <button id="toggleScroll" class="primary">Play scroll</button>
+          <button id="resetScroll">Reset</button>
+          <button id="mirrorToggle">Mirror text</button>
+          <label>Speed
+            <input id="speed" type="range" min="0.1" max="4" step="0.1" value="1" />
+          </label>
+        </div>
+      </div>
+      <p class="hint">
+        Run this page fullscreen on the iPad, dim the screen slightly, and keep your gaze near the lens for natural eye contact.
+      </p>
+    </div>
+  </div>
+
+  <script>
+    const scriptInput = document.getElementById('scriptInput');
+    const teleprompter = document.getElementById('teleprompter');
+    const teleprompterText = document.getElementById('teleprompterText');
+    const toggleScrollBtn = document.getElementById('toggleScroll');
+    const resetScrollBtn = document.getElementById('resetScroll');
+    const mirrorToggleBtn = document.getElementById('mirrorToggle');
+    const speedInput = document.getElementById('speed');
+    const timestamp = document.getElementById('timestamp');
+    const countdownEl = document.getElementById('countdown');
+
+    let scrollPosition = 0;
+    let isScrolling = false;
+    let lastFrameTime = 0;
+    let countdownActive = false;
+
+    const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+    const renderScript = () => {
+      const lines = scriptInput.value.trim().split(/\n+/).filter(Boolean);
+      teleprompterText.innerHTML = lines.map(line => `<p>${line}</p>`).join('');
+      scrollPosition = 0;
+      teleprompterText.style.transform = 'translateY(0)';
+    };
+
+    const runCountdown = async () => {
+      countdownActive = true;
+      countdownEl.classList.add('visible');
+      const sequence = ['3', '2', '1'];
+      for (const value of sequence) {
+        countdownEl.textContent = value;
+        await wait(800);
+      }
+      countdownEl.textContent = 'Go!';
+      await wait(400);
+      countdownEl.classList.remove('visible');
+      countdownActive = false;
+    };
+
+    const animateScroll = time => {
+      if (isScrolling) {
+        if (lastFrameTime) {
+          const delta = time - lastFrameTime;
+          const pixelsPerFrame = parseFloat(speedInput.value) * 0.4 * (delta / 16);
+          scrollPosition += pixelsPerFrame;
+          const maxScroll = Math.max(0, teleprompterText.offsetHeight - teleprompter.offsetHeight);
+          if (scrollPosition >= maxScroll) {
+            scrollPosition = maxScroll;
+            isScrolling = false;
+            toggleScrollBtn.textContent = 'Play scroll';
+          }
+        }
+        teleprompterText.style.transform = `translateY(${-scrollPosition}px)`;
+      }
+      lastFrameTime = time;
+      requestAnimationFrame(animateScroll);
+    };
+
+    toggleScrollBtn.addEventListener('click', () => {
+      isScrolling = !isScrolling;
+      toggleScrollBtn.textContent = isScrolling ? 'Pause scroll' : 'Play scroll';
+      if (!isScrolling) {
+        lastFrameTime = 0;
+      }
+    });
+
+    resetScrollBtn.addEventListener('click', () => {
+      scrollPosition = 0;
+      teleprompterText.style.transform = 'translateY(0)';
+      isScrolling = false;
+      toggleScrollBtn.textContent = 'Play scroll';
+    });
+
+    mirrorToggleBtn.addEventListener('click', () => {
+      teleprompter.classList.toggle('mirrored');
+      mirrorToggleBtn.textContent = teleprompter.classList.contains('mirrored') ? 'Unmirror text' : 'Mirror text';
+    });
+
+    scriptInput.addEventListener('input', () => {
+      renderScript();
+    });
+
+    renderScript();
+    requestAnimationFrame(animateScroll);
+    timestamp.textContent = new Date().toLocaleString();
+
+    // Camera + recording setup
+    const preview = document.getElementById('cameraPreview');
+    const startCameraBtn = document.getElementById('startCamera');
+    const flipCameraBtn = document.getElementById('flipCamera');
+    const recordBtn = document.getElementById('recordBtn');
+    const stopRecordBtn = document.getElementById('stopRecordBtn');
+    const downloadBtn = document.getElementById('downloadRecording');
+    const statusBadge = document.getElementById('statusBadge');
+    const timerEl = document.getElementById('timer');
+
+    let stream;
+    let recorder;
+    let recordedChunks = [];
+    let facingMode = 'user';
+    let mimeType = '';
+    let timerInterval;
+    let startTime = null;
+
+    const updateStatus = (text, state) => {
+      statusBadge.textContent = text;
+      statusBadge.classList.remove('recording');
+      if (state === 'recording') {
+        statusBadge.classList.add('recording');
+      }
+    };
+
+    const setDownloadEnabled = enabled => {
+      if (enabled) {
+        downloadBtn.classList.remove('disabled');
+        downloadBtn.setAttribute('aria-disabled', 'false');
+      } else {
+        downloadBtn.classList.add('disabled');
+        downloadBtn.setAttribute('aria-disabled', 'true');
+        downloadBtn.removeAttribute('href');
+        downloadBtn.removeAttribute('download');
+      }
+    };
+
+    const stopTracks = () => {
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+        stream = null;
+      }
+    };
+
+    const initCamera = async () => {
+      try {
+        stopTracks();
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode },
+          audio: true,
+        });
+        preview.srcObject = stream;
+        recordBtn.disabled = false;
+        flipCameraBtn.disabled = false;
+        updateStatus('Camera live');
+      } catch (err) {
+        console.error(err);
+        updateStatus('Camera blocked', 'error');
+        alert('Please allow camera + microphone access in Safari settings.');
+      }
+    };
+
+    const formatTime = ms => {
+      const total = Math.floor(ms / 1000);
+      const minutes = String(Math.floor(total / 60)).padStart(2, '0');
+      const seconds = String(total % 60).padStart(2, '0');
+      return `${minutes}:${seconds}`;
+    };
+
+    const startTimer = () => {
+      startTime = Date.now();
+      timerEl.textContent = '00:00';
+      timerInterval = setInterval(() => {
+        timerEl.textContent = formatTime(Date.now() - startTime);
+      }, 200);
+    };
+
+    const stopTimer = () => {
+      clearInterval(timerInterval);
+      timerInterval = null;
+    };
+
+    startCameraBtn.addEventListener('click', initCamera);
+
+    flipCameraBtn.addEventListener('click', () => {
+      facingMode = facingMode === 'user' ? 'environment' : 'user';
+      initCamera();
+    });
+
+    const pickMimeType = () => {
+      const mp4 = 'video/mp4;codecs="h264,aac"';
+      const webm = 'video/webm;codecs=vp9,opus';
+      if (MediaRecorder.isTypeSupported(mp4)) {
+        return mp4;
+      }
+      if (MediaRecorder.isTypeSupported(webm)) {
+        return webm;
+      }
+      return '';
+    };
+
+    recordBtn.addEventListener('click', async () => {
+      if (!stream) {
+        alert('Start the camera first.');
+        return;
+      }
+      if (countdownActive) {
+        return;
+      }
+      mimeType = pickMimeType();
+      try {
+        recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+      } catch (err) {
+        console.error(err);
+        alert('Recording not supported in this browser.');
+        return;
+      }
+      recordedChunks = [];
+      recorder.ondataavailable = e => {
+        if (e.data?.size) {
+          recordedChunks.push(e.data);
+        }
+      };
+      recorder.onstop = () => {
+        if (!recordedChunks.length) {
+          setDownloadEnabled(false);
+          return;
+        }
+        const blob = new Blob(recordedChunks, { type: mimeType || 'video/webm' });
+        const url = URL.createObjectURL(blob);
+        downloadBtn.href = url;
+        const extension = (mimeType && mimeType.includes('mp4')) ? 'mp4' : 'webm';
+        downloadBtn.download = `teleprompter-${Date.now()}.${extension}`;
+        setDownloadEnabled(true);
+        updateStatus('Ready to download');
+      };
+      recordBtn.disabled = true;
+      stopRecordBtn.disabled = true;
+      setDownloadEnabled(false);
+      updateStatus('Get ready');
+      await runCountdown();
+      recorder.start();
+      startTimer();
+      updateStatus('Recording', 'recording');
+      stopRecordBtn.disabled = false;
+    });
+
+    stopRecordBtn.addEventListener('click', () => {
+      if (recorder && recorder.state !== 'inactive') {
+        recorder.stop();
+      }
+      stopTimer();
+      recordBtn.disabled = false;
+      stopRecordBtn.disabled = true;
+      setDownloadEnabled(false);
+      updateStatus('Processing clip');
+    });
+
+    downloadBtn.addEventListener('click', () => {
+      if (!downloadBtn.classList.contains('disabled')) {
+        updateStatus('Clip saved');
+      }
+    });
+
+    window.addEventListener('beforeunload', () => {
+      stopTracks();
+    });
+  </script>
+</body>
+</html>
