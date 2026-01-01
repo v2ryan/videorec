@@ -704,6 +704,7 @@
           <button id="recordBtn" class="primary" disabled>Start recording</button>
           <button id="stopRecordBtn" class="danger" disabled>Stop recording</button>
           <a id="downloadRecording" class="ghost-button disabled" role="button" aria-disabled="true">Download clip</a>
+          <button id="shareBtn" class="ghost-button disabled" disabled>Share video</button>
         </div>
         <div class="layout-split">
           <div class="script-editor">
@@ -804,6 +805,8 @@ Remember to smile, slow down, and keep your energy up!</textarea>
         cancel: 'Cancel',
         goFullScreen: '✓ Go Full Screen',
         floatingStop: '⏹ Stop Recording',
+        share: 'Share video',
+        sharing: 'Sharing...',
         langBtn: 'EN / 中文'
       },
       zh: {
@@ -838,6 +841,8 @@ Remember to smile, slow down, and keep your energy up!</textarea>
         cancel: '取消',
         goFullScreen: '✓ 全螢幕',
         floatingStop: '⏹ 停止錄製',
+        share: '分享影片',
+        sharing: '分享中...',
         langBtn: '中文 / EN'
       }
     };
@@ -848,6 +853,7 @@ Remember to smile, slow down, and keep your energy up!</textarea>
     const recordBtn = document.getElementById('recordBtn');
     const stopRecordBtn = document.getElementById('stopRecordBtn');
     const downloadBtn = document.getElementById('downloadRecording');
+    const shareBtn = document.getElementById('shareBtn');
     const previewHeader = document.querySelector('.preview-header');
     const previewModal = document.getElementById('previewModal');
     const previewVideo = document.getElementById('previewVideo');
@@ -883,6 +889,7 @@ Remember to smile, slow down, and keep your energy up!</textarea>
       if (cancelPreviewBtn) cancelPreviewBtn.textContent = t.cancel;
       if (confirmRecordBtn) confirmRecordBtn.textContent = t.goFullScreen;
       if (floatingStopBtn) floatingStopBtn.textContent = t.floatingStop;
+      if (shareBtn) shareBtn.textContent = t.share;
     };
 
     applyTranslations();
@@ -1018,13 +1025,30 @@ Remember to smile, slow down, and keep your energy up!</textarea>
 
     const setDownloadEnabled = enabled => {
       if (enabled) {
+        console.log("Enabling share/download buttons. navigator.share exists:", !!navigator.share);
         downloadBtn.classList.remove('disabled');
         downloadBtn.setAttribute('aria-disabled', 'false');
+
+        // Check if we are in a secure context (HTTPS) or localhost
+        const isSecure = window.isSecureContext;
+        if (navigator.share && isSecure) {
+          shareBtn.classList.remove('disabled');
+          shareBtn.disabled = false;
+          shareBtn.title = "";
+        } else {
+          shareBtn.classList.add('disabled');
+          shareBtn.disabled = true;
+          const msg = isSecure ? "Share not supported" : "Share requires HTTPS";
+          shareBtn.title = msg;
+          console.warn("Share API disabled:", msg);
+        }
       } else {
         downloadBtn.classList.add('disabled');
         downloadBtn.setAttribute('aria-disabled', 'true');
         downloadBtn.removeAttribute('href');
         downloadBtn.removeAttribute('download');
+        shareBtn.classList.add('disabled');
+        shareBtn.disabled = true;
       }
     };
 
@@ -1092,13 +1116,19 @@ Remember to smile, slow down, and keep your energy up!</textarea>
     });
 
     const pickMimeType = () => {
-      const mp4 = 'video/mp4;codecs="h264,aac"';
-      const webm = 'video/webm;codecs=vp9,opus';
-      if (MediaRecorder.isTypeSupported(mp4)) {
-        return mp4;
-      }
-      if (MediaRecorder.isTypeSupported(webm)) {
-        return webm;
+      const types = [
+        'video/mp4;codecs="h264,aac"',
+        'video/mp4;codecs="avc1.42E01E,mp4a.40.2"',
+        'video/mp4',
+        'video/webm;codecs=vp9,opus',
+        'video/webm;codecs=vp8,opus',
+        'video/webm'
+      ];
+      for (const t of types) {
+        if (MediaRecorder.isTypeSupported(t)) {
+          console.log("Selected mimeType:", t);
+          return t;
+        }
       }
       return '';
     };
@@ -1163,6 +1193,7 @@ Remember to smile, slow down, and keep your energy up!</textarea>
       recordedChunks = [];
       recorder.ondataavailable = e => {
         if (e.data?.size) {
+          console.log("Chunk received, size:", e.data.size);
           recordedChunks.push(e.data);
         }
       };
@@ -1175,10 +1206,11 @@ Remember to smile, slow down, and keep your energy up!</textarea>
           }
           return;
         }
-        const blob = new Blob(recordedChunks, { type: mimeType || 'video/webm' });
+        const blob = new Blob(recordedChunks, { type: mimeType || 'video/mp4' });
+        console.log("Recording stopped. Blob size:", blob.size, "Type:", blob.type);
         const url = URL.createObjectURL(blob);
         downloadBtn.href = url;
-        const extension = (mimeType && mimeType.includes('mp4')) ? 'mp4' : 'webm';
+        const extension = (blob.type.includes('mp4')) ? 'mp4' : 'webm';
         downloadBtn.download = `teleprompter-${Date.now()}.${extension}`;
         setDownloadEnabled(true);
         updateStatus('Ready to download');
@@ -1231,6 +1263,39 @@ Remember to smile, slow down, and keep your energy up!</textarea>
     downloadBtn.addEventListener('click', () => {
       if (!downloadBtn.classList.contains('disabled')) {
         updateStatus('Clip saved');
+      }
+    });
+
+    shareBtn.addEventListener('click', async () => {
+      if (!recordedChunks.length) return;
+
+      const blob = new Blob(recordedChunks, { type: mimeType || 'video/mp4' });
+      const extension = (blob.type.includes('mp4')) ? 'mp4' : 'webm';
+      const file = new File([blob], `teleprompter-${Date.now()}.${extension}`, { type: blob.type });
+
+      console.log("Attempting to share file:", file.name, "Type:", file.type);
+
+      if (navigator.share && window.isSecureContext) {
+        try {
+          shareBtn.textContent = translations[currentLang].sharing;
+          shareBtn.disabled = true;
+          await navigator.share({
+            files: [file],
+            title: 'Teleprompter Recording',
+            text: 'Check out my teleprompter recording!'
+          });
+        } catch (err) {
+          if (err.name !== 'AbortError') {
+            console.error('Share failed:', err);
+            alert('Sharing failed. Error: ' + err.message + '. Please try downloading instead.');
+          }
+        } finally {
+          shareBtn.textContent = translations[currentLang].share;
+          shareBtn.disabled = false;
+        }
+      } else {
+        const msg = !window.isSecureContext ? "Sharing requires HTTPS (or localhost)." : "Sharing is not supported in this browser.";
+        alert(msg);
       }
     });
 
