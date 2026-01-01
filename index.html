@@ -848,46 +848,44 @@ Remember to smile, slow down, and keep your energy up!</textarea>
     const recordBtn = document.getElementById('recordBtn');
     const stopRecordBtn = document.getElementById('stopRecordBtn');
     const downloadBtn = document.getElementById('downloadRecording');
-    const scriptLabel = document.querySelector('label[for="scriptInput"]');
-    const hintEl = document.querySelector('.hint');
     const previewHeader = document.querySelector('.preview-header');
-    const previewScriptLabel = document.querySelector('#previewScript strong');
-    const cancelPreviewBtnEl = document.getElementById('cancelPreview');
-    const confirmRecordBtnEl = document.getElementById('confirmRecord');
-    const floatingStopBtnEl = document.getElementById('floatingStopBtn');
-
-    // Preview modal elements
     const previewModal = document.getElementById('previewModal');
     const previewVideo = document.getElementById('previewVideo');
     const previewScriptText = document.getElementById('previewScriptText');
     const cancelPreviewBtn = document.getElementById('cancelPreview');
     const confirmRecordBtn = document.getElementById('confirmRecord');
-
-    // Small pip camera in dock
+    const floatingStopBtn = document.getElementById('floatingStopBtn');
     const pipCamera = document.getElementById('pipCamera');
     const pipVideo = document.getElementById('pipVideo');
+    const scriptLabel = document.querySelector('label[for="scriptInput"]');
+    const hintEl = document.querySelector('.hint');
+    const speedLabel = document.querySelector('label:has(#speed)') || Array.from(document.querySelectorAll('label')).find(l => l.innerText.includes('Speed'));
 
     const applyTranslations = () => {
       const t = translations[currentLang];
-      langToggle.textContent = t.langBtn;
-      dockToggleLabel.textContent = dock.classList.contains('collapsed') ? t.showControls : t.hideControls;
-      startCameraBtn.textContent = t.startCamera;
-      flipCameraBtn.textContent = t.flipCamera;
-      recordBtn.textContent = t.startRecording;
-      stopRecordBtn.textContent = t.stopRecording;
-      downloadBtn.textContent = t.downloadClip;
-      toggleScrollBtn.textContent = isScrolling ? t.pauseScroll : t.playScroll;
-      resetScrollBtn.textContent = t.reset;
-      mirrorToggleBtn.textContent = teleprompter.classList.contains('mirrored') ? t.unmirrorText : t.mirrorText;
-      document.querySelector('label:has(#speed)').childNodes[0].textContent = t.speed;
-      scriptLabel.childNodes[0].textContent = t.scriptText;
-      hintEl.textContent = t.hint;
-      previewHeader.textContent = t.cameraPreview;
-      previewScriptLabel.textContent = t.script;
-      cancelPreviewBtnEl.textContent = t.cancel;
-      confirmRecordBtnEl.textContent = t.goFullScreen;
-      floatingStopBtnEl.textContent = t.floatingStop;
+      const previewScriptLabel = document.querySelector('#previewScript strong');
+
+      if (langToggle) langToggle.textContent = t.langBtn;
+      if (dockToggleLabel) dockToggleLabel.textContent = dock.classList.contains('collapsed') ? t.showControls : t.hideControls;
+      if (startCameraBtn) startCameraBtn.textContent = t.startCamera;
+      if (flipCameraBtn) flipCameraBtn.textContent = t.flipCamera;
+      if (recordBtn) recordBtn.textContent = t.startRecording;
+      if (stopRecordBtn) stopRecordBtn.textContent = t.stopRecording;
+      if (downloadBtn) downloadBtn.textContent = t.downloadClip;
+      if (toggleScrollBtn) toggleScrollBtn.textContent = isScrolling ? t.pauseScroll : t.playScroll;
+      if (resetScrollBtn) resetScrollBtn.textContent = t.reset;
+      if (mirrorToggleBtn) mirrorToggleBtn.textContent = teleprompter.classList.contains('mirrored') ? t.unmirrorText : t.mirrorText;
+      if (speedLabel && speedLabel.childNodes[0]) speedLabel.childNodes[0].textContent = t.speed;
+      if (scriptLabel && scriptLabel.childNodes[0]) scriptLabel.childNodes[0].textContent = t.scriptText;
+      if (hintEl) hintEl.textContent = t.hint;
+      if (previewHeader) previewHeader.textContent = t.cameraPreview;
+      if (previewScriptLabel) previewScriptLabel.textContent = t.script;
+      if (cancelPreviewBtn) cancelPreviewBtn.textContent = t.cancel;
+      if (confirmRecordBtn) confirmRecordBtn.textContent = t.goFullScreen;
+      if (floatingStopBtn) floatingStopBtn.textContent = t.floatingStop;
     };
+
+    applyTranslations();
 
     langToggle.addEventListener('click', () => {
       currentLang = currentLang === 'en' ? 'zh' : 'en';
@@ -1210,9 +1208,7 @@ Remember to smile, slow down, and keep your energy up!</textarea>
       floatingStopBtn.classList.add('visible');
     });
 
-    // Floating stop button
-    const floatingStopBtn = document.getElementById('floatingStopBtn');
-
+    // Stop recording logic
     const stopRecording = () => {
       if (recorder && recorder.state !== 'inactive') {
         recorder.stop();
