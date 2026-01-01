@@ -856,6 +856,17 @@ Remember to smile, slow down, and keep your energy up!</textarea>
     const confirmRecordBtnEl = document.getElementById('confirmRecord');
     const floatingStopBtnEl = document.getElementById('floatingStopBtn');
 
+    // Preview modal elements
+    const previewModal = document.getElementById('previewModal');
+    const previewVideo = document.getElementById('previewVideo');
+    const previewScriptText = document.getElementById('previewScriptText');
+    const cancelPreviewBtn = document.getElementById('cancelPreview');
+    const confirmRecordBtn = document.getElementById('confirmRecord');
+
+    // Small pip camera in dock
+    const pipCamera = document.getElementById('pipCamera');
+    const pipVideo = document.getElementById('pipVideo');
+
     const applyTranslations = () => {
       const t = translations[currentLang];
       langToggle.textContent = t.langBtn;
@@ -1094,17 +1105,7 @@ Remember to smile, slow down, and keep your energy up!</textarea>
       return '';
     };
 
-    // Preview modal elements
-    const previewModal = document.getElementById('previewModal');
-    const previewVideo = document.getElementById('previewVideo');
-    const previewScriptText = document.getElementById('previewScriptText');
-    const cancelPreviewBtn = document.getElementById('cancelPreview');
-    const confirmRecordBtn = document.getElementById('confirmRecord');
-
-    // Small pip camera in dock
-    const pipCamera = document.getElementById('pipCamera');
-    const pipVideo = document.getElementById('pipVideo');
-
+    // showPreviewModal logic
     const showPreviewModal = () => {
       previewVideo.srcObject = stream;
       previewScriptText.textContent = scriptInput.value.trim().substring(0, 200) + (scriptInput.value.length > 200 ? '...' : '');
