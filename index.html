@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -53,7 +54,7 @@
       content: "";
       position: absolute;
       inset: 0;
-      background: linear-gradient(180deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.65) 70%);
+      background: linear-gradient(180deg, rgba(0, 0, 0, 0.1) 0%, rgba(0, 0, 0, 0.25) 100%);
       pointer-events: none;
     }
 
@@ -63,7 +64,7 @@
       left: 50%;
       transform: translateX(-50%);
       width: min(900px, 92%);
-      max-height: 70vh;
+      height: 70vh;
       padding: clamp(1.5rem, 3vw, 2.5rem);
       background: var(--surface-soft);
       border-radius: 1.75rem;
@@ -81,6 +82,7 @@
       font-size: clamp(1.4rem, 3vw, 2.4rem);
       line-height: 1.4;
       color: var(--ink);
+      padding-bottom: 60vh;
     }
 
     .teleprompter p {
@@ -267,7 +269,8 @@
 
     textarea {
       width: 100%;
-      min-height: 180px;
+      min-height: 300px;
+      max-height: 400px;
       border-radius: 1rem;
       border: 1px solid var(--border);
       background: rgba(255, 255, 255, 0.8);
@@ -278,6 +281,7 @@
       font-family: inherit;
       line-height: 1.5;
       box-shadow: inset 0 1px 3px rgba(15, 23, 42, 0.08);
+      overflow-y: auto;
     }
 
     .prompt-controls {
@@ -304,20 +308,148 @@
       margin: 0;
     }
 
+    .recording-timer-overlay {
+      position: absolute;
+      top: 1.5rem;
+      right: 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      padding: 0.6rem 1.2rem;
+      background: rgba(0, 0, 0, 0.7);
+      border-radius: 999px;
+      z-index: 10;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 200ms ease;
+    }
+
+    .recording-timer-overlay.visible {
+      opacity: 1;
+    }
+
+    .recording-timer-overlay .rec-dot {
+      width: 12px;
+      height: 12px;
+      background: #ef4444;
+      border-radius: 50%;
+      animation: pulse-dot 1s ease-in-out infinite;
+    }
+
+    @keyframes pulse-dot {
+
+      0%,
+      100% {
+        opacity: 1;
+      }
+
+      50% {
+        opacity: 0.4;
+      }
+    }
+
+    .recording-timer-overlay .rec-time {
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: #ffffff;
+      font-variant-numeric: tabular-nums;
+    }
+
     @media (max-width: 640px) {
       .teleprompter {
         top: 3vh;
         max-height: 60vh;
       }
+
       .control-dock {
         border-radius: 1.5rem 1.5rem 0 0;
       }
     }
+
+    /* Preview Modal */
+    .preview-modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.85);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 200ms ease;
+    }
+
+    .preview-modal.visible {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .preview-container {
+      width: min(90%, 600px);
+      background: var(--surface);
+      border-radius: 1.5rem;
+      overflow: hidden;
+      box-shadow: 0 25px 80px rgba(0, 0, 0, 0.5);
+    }
+
+    .preview-header {
+      padding: 1rem 1.5rem;
+      background: rgba(0, 0, 0, 0.1);
+      font-weight: 600;
+      font-size: 1.1rem;
+      text-align: center;
+    }
+
+    .preview-video-wrap {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      background: #000;
+    }
+
+    .preview-video-wrap video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .preview-script {
+      padding: 1rem 1.5rem;
+      max-height: 120px;
+      overflow-y: auto;
+      font-size: 0.95rem;
+      color: var(--muted);
+      background: rgba(0, 0, 0, 0.05);
+      border-top: 1px solid var(--border);
+    }
+
+    .preview-script strong {
+      color: var(--ink);
+    }
+
+    .preview-buttons {
+      display: flex;
+      gap: 0.75rem;
+      padding: 1rem 1.5rem;
+    }
+
+    .preview-buttons button {
+      flex: 1;
+    }
   </style>
 </head>
+
 <body>
   <div class="canvas">
     <video id="cameraPreview" class="camera-feed" autoplay playsinline muted></video>
+
+    <!-- Recording timer overlay -->
+    <div class="recording-timer-overlay" id="recordingTimerOverlay">
+      <span class="rec-dot"></span>
+      <span class="rec-time" id="recTime">00:00</span>
+    </div>
 
     <div class="teleprompter" id="teleprompter">
       <div class="teleprompter-inner" id="teleprompterText"></div>
@@ -363,8 +495,26 @@ Remember to smile, slow down, and keep your energy up!</textarea>
           </div>
         </div>
         <p class="hint">
-          Run this page fullscreen on the iPad, dim the screen slightly, and keep your gaze near the lens for natural eye contact.
+          Run this page fullscreen on the iPad, dim the screen slightly, and keep your gaze near the lens for natural
+          eye contact.
         </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Preview Modal -->
+  <div class="preview-modal" id="previewModal">
+    <div class="preview-container">
+      <div class="preview-header">📹 Recording Preview</div>
+      <div class="preview-video-wrap">
+        <video id="previewVideo" autoplay playsinline muted></video>
+      </div>
+      <div class="preview-script" id="previewScript">
+        <strong>Script:</strong> <span id="previewScriptText"></span>
+      </div>
+      <div class="preview-buttons">
+        <button id="cancelPreview">Cancel</button>
+        <button id="confirmRecord" class="primary">🔴 Start Recording</button>
       </div>
     </div>
   </div>
@@ -547,17 +697,25 @@ Remember to smile, slow down, and keep your energy up!</textarea>
       return `${minutes}:${seconds}`;
     };
 
+    const recTimeOverlay = document.getElementById('recTime');
+    const recordingTimerOverlay = document.getElementById('recordingTimerOverlay');
+
     const startTimer = () => {
       startTime = Date.now();
       timerEl.textContent = '00:00';
+      recTimeOverlay.textContent = '00:00';
+      recordingTimerOverlay.classList.add('visible');
       timerInterval = setInterval(() => {
-        timerEl.textContent = formatTime(Date.now() - startTime);
+        const elapsed = formatTime(Date.now() - startTime);
+        timerEl.textContent = elapsed;
+        recTimeOverlay.textContent = elapsed;
       }, 200);
     };
 
     const stopTimer = () => {
       clearInterval(timerInterval);
       timerInterval = null;
+      recordingTimerOverlay.classList.remove('visible');
     };
 
     startCameraBtn.addEventListener('click', initCamera);
@@ -579,7 +737,27 @@ Remember to smile, slow down, and keep your energy up!</textarea>
       return '';
     };
 
-    recordBtn.addEventListener('click', async () => {
+    // Preview modal elements
+    const previewModal = document.getElementById('previewModal');
+    const previewVideo = document.getElementById('previewVideo');
+    const previewScriptText = document.getElementById('previewScriptText');
+    const cancelPreviewBtn = document.getElementById('cancelPreview');
+    const confirmRecordBtn = document.getElementById('confirmRecord');
+
+    const showPreviewModal = () => {
+      previewVideo.srcObject = stream;
+      previewScriptText.textContent = scriptInput.value.trim().substring(0, 200) + (scriptInput.value.length > 200 ? '...' : '');
+      previewModal.classList.add('visible');
+    };
+
+    const hidePreviewModal = () => {
+      previewModal.classList.remove('visible');
+      previewVideo.srcObject = null;
+    };
+
+    cancelPreviewBtn.addEventListener('click', hidePreviewModal);
+
+    recordBtn.addEventListener('click', () => {
       if (!stream) {
         alert('Start the camera first.');
         return;
@@ -587,6 +765,12 @@ Remember to smile, slow down, and keep your energy up!</textarea>
       if (countdownActive) {
         return;
       }
+      showPreviewModal();
+    });
+
+    confirmRecordBtn.addEventListener('click', async () => {
+      hidePreviewModal();
+
       mimeType = pickMimeType();
       try {
         recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
@@ -632,6 +816,11 @@ Remember to smile, slow down, and keep your energy up!</textarea>
       await runCountdown();
       recorder.start();
       startTimer();
+      // Auto-start teleprompter scroll when recording begins
+      scrollPosition = 0;
+      teleprompterText.style.transform = 'translateY(0)';
+      isScrolling = true;
+      toggleScrollBtn.textContent = 'Pause scroll';
       updateStatus('Recording', 'recording');
       stopRecordBtn.disabled = false;
     });
@@ -641,6 +830,9 @@ Remember to smile, slow down, and keep your energy up!</textarea>
         recorder.stop();
       }
       stopTimer();
+      // Stop teleprompter scroll when recording stops
+      isScrolling = false;
+      toggleScrollBtn.textContent = 'Play scroll';
       recordBtn.disabled = false;
       stopRecordBtn.disabled = true;
       setDownloadEnabled(false);
@@ -658,4 +850,5 @@ Remember to smile, slow down, and keep your energy up!</textarea>
     });
   </script>
 </body>
+
 </html>
